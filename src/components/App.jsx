@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import { useState, useEffect } from 'react';
 
 import { PixabayAPIService } from '../utils/pixabay-api';
 
@@ -12,117 +12,86 @@ import { Message } from './Message/Message';
 
 const pixabayAPIService = new PixabayAPIService();
 
-export class App extends Component {
-  state = {
-    query: '',
-    page: 1,
-    images: [],
-    error: false,
-    isLoadMore: false,
-    isLoad: false,
-    selectedImage: {},
-    showModal: false,
-  };
+export const App = () => {
+  const [query, setQuery] = useState('');
+  const [images, setImages] = useState([]);
+  const [page, setPage] = useState(1);
+  const [error, setError] = useState(false);
+  const [isLoadMore, setIsLoadMore] = useState(false);
+  const [isLoad, setIsLoad] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(false);
+  const [showModal, setShowModal] = useState(false);
 
-  async componentDidUpdate(prevProps, prevState) {
-    const { page, query } = this.state;
-
-    if (
-      (prevState.query !== query || prevState.page !== page) &&
-      query !== ''
-    ) {
+  useEffect(() => {
+    async function fetchApi() {
       try {
-        this.setState({
-          isLoadMore: false,
-          isLoad: true,
-          error: false,
-        });
+        setIsLoadMore(false);
+        if (query === '') return;
+
+        setIsLoad(true);
+        setError(false);
 
         pixabayAPIService.page = page;
         pixabayAPIService.query = query;
-        const images = await pixabayAPIService.fetchImages();
+        const newImages = await pixabayAPIService.fetchImages();
 
-        this.setState(prevState => {
-          return {
-            images: [...prevState.images, ...images],
-            isLoadMore: pixabayAPIService.isMore(),
-            isLoad: false,
-          };
-        });
+        setImages(prev => [...prev, ...newImages]);
+        setIsLoadMore(pixabayAPIService.isMore());
       } catch (error) {
-        this.setState({ error: true });
+        setError(true);
       } finally {
-        this.setState({ isLoad: false });
+        setIsLoad(false);
       }
     }
-  }
 
-  onSubmit = async ({ query }) => {
-    if (this.state.query === query) return;
+    fetchApi();
+  }, [page, query]);
 
-    this.setState({
-      query: query,
-      page: 1,
-      images: [],
-    });
+  const onSubmit = async values => {
+    const newQuery = values.query.trim();
+    if (query === newQuery) return;
+
+    setQuery(values.query);
+    setPage(1);
+    setImages([]);
   };
 
-  onLoadMore = () => {
-    this.setState(prevState => {
-      return { page: prevState.page + 1 };
-    });
+  const onLoadMore = () => {
+    setPage(prev => prev + 1);
   };
 
-  closeModal = () => {
-    this.setState({
-      selectedImage: {},
-      showModal: false,
-    });
+  const closeModal = () => {
+    setSelectedImage({});
+    setShowModal(false);
   };
 
-  onShowImage = image => {
-    this.setState({
-      selectedImage: image,
-      showModal: true,
-    });
+  const onShowImage = image => {
+    setSelectedImage(image);
+    setShowModal(true);
   };
 
-  render() {
-    const {
-      images,
-      query,
-      isLoadMore,
-      isLoad,
-      showModal,
-      selectedImage,
-      error,
-    } = this.state;
+  const isNotFound = images.length === 0 && query !== '' && !isLoad && !error;
 
-    const isNotFound = images.length === 0 && query !== '' && !isLoad && !error;
+  return (
+    <Container>
+      <Searchbar onSubmit={onSubmit} />
 
-    return (
-      <Container>
-        <Searchbar onSubmit={this.onSubmit} />
+      {images.length !== 0 && (
+        <ImageGallery images={images} onShowImage={onShowImage} />
+      )}
 
-        {images.length !== 0 && (
-          <ImageGallery images={images} onShowImage={this.onShowImage} />
-        )}
+      {isNotFound && (
+        <Message
+          text="Sorry, but we couldn't find any results for your query."
+          color="blue"
+        />
+      )}
 
-        {isNotFound && (
-          <Message
-            text="Sorry, but we couldn't find any results for your query."
-            color="blue"
-          />
-        )}
+      {error && <Message text="Oops, something went wrong..." color="red" />}
 
-        {error && <Message text="Oops, something went wrong..." color="red" />}
-
-        {isLoadMore && <Button onClick={this.onLoadMore} />}
-        {isLoad && <Loader />}
-        {showModal && (
-          <Modal image={selectedImage} closeModal={this.closeModal} />
-        )}
-      </Container>
-    );
-  }
-}
+      {isLoadMore && <Button onClick={onLoadMore} />}
+      {isLoad && <Loader />}
+      {showModal && <Modal image={selectedImage} closeModal={closeModal} />}
+    </Container>
+  );
+};
