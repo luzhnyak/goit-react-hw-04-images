@@ -51,7 +51,7 @@ export const App = () => {
     const newQuery = values.query.trim();
     if (query === newQuery) return;
 
-    setQuery(values.query);
+    setQuery(newQuery);
     setPage(1);
     setImages([]);
   };
